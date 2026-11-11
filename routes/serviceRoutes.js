@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const Service = require("../models/Service");
+const authMiddleware = require("../middleware/authMiddleware");
+const adminMiddleware = require("../middleware/adminMiddleware");
 
 const defaultServices = [
   { categoryId: "1", name: "Bike Foam Washing", price: 200, description: "High pressure foam wash, degreasing & polish" },
@@ -19,7 +21,7 @@ const seedServices = async () => {
   }
 };
 
-// GET ALL
+// GET ALL (Public)
 router.get("/", async (req, res) => {
   try {
     await seedServices();
@@ -33,7 +35,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET BY CATEGORY
+// GET BY CATEGORY (Public)
 router.get("/category/:categoryId", async (req, res) => {
   try {
     await seedServices();
@@ -47,8 +49,8 @@ router.get("/category/:categoryId", async (req, res) => {
   }
 });
 
-// ADD SERVICE
-router.post("/", async (req, res) => {
+// ADD SERVICE (Admin only)
+router.post("/", authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const { name, price, categoryId, description } = req.body;
 
@@ -76,8 +78,25 @@ router.post("/", async (req, res) => {
   }
 });
 
-// DELETE
-router.delete("/:id", async (req, res) => {
+// UPDATE SERVICE (Admin only)
+router.put("/:id", authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const updated = await Service.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "Service not found" });
+    }
+    res.json({
+      success: true,
+      message: "Service updated",
+      data: updated,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// DELETE SERVICE (Admin only)
+router.delete("/:id", authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const deleted = await Service.findByIdAndDelete(req.params.id);
     if (!deleted) {

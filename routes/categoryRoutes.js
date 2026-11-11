@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const Category = require("../models/Category");
+const authMiddleware = require("../middleware/authMiddleware");
+const adminMiddleware = require("../middleware/adminMiddleware");
 
 const defaultCategories = [
   {
@@ -26,7 +28,7 @@ const seedCategories = async () => {
   }
 };
 
-// GET ALL
+// GET ALL (Public for all users)
 router.get("/", async (req, res) => {
   try {
     await seedCategories();
@@ -37,41 +39,45 @@ router.get("/", async (req, res) => {
   }
 });
 
-// POST
-router.post("/", async (req, res) => {
+// POST (Admin only)
+router.post("/", authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const { catname, images } = req.body;
     if (!catname || !images) {
       return res.status(400).json({ success: false, message: "catname and images required" });
     }
     const category = await Category.create({ catname, images });
-    res.status(201).json(category);
+    res.status(201).json({
+      success: true,
+      message: "Category added successfully",
+      data: category,
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// PUT
-router.put("/:id", async (req, res) => {
+// PUT (Admin only)
+router.put("/:id", authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const updated = await Category.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!updated) {
       return res.status(404).json({ success: false, message: "Category not found" });
     }
-    res.json({ success: true, message: "Updated", data: updated });
+    res.json({ success: true, message: "Category updated", data: updated });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// DELETE
-router.delete("/:id", async (req, res) => {
+// DELETE (Admin only)
+router.delete("/:id", authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const deleted = await Category.findByIdAndDelete(req.params.id);
     if (!deleted) {
       return res.status(404).json({ success: false, message: "Category not found" });
     }
-    res.json({ success: true, message: "Deleted" });
+    res.json({ success: true, message: "Category deleted" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

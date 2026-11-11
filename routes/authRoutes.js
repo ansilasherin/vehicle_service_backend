@@ -6,15 +6,35 @@ const User = require("../models/User");
 
 const SECRET = process.env.JWT_SECRET || "mysecretkey_vehicle_service";
 
+// Seed default Admin if no admin exists
+const seedAdmin = async () => {
+  try {
+    const adminExists = await User.findOne({ role: "admin" });
+    if (!adminExists) {
+      const hashedPassword = await bcrypt.hash("admin123", 10);
+      await User.create({
+        username: "admin",
+        phone: "9999999999",
+        password: hashedPassword,
+        role: "admin",
+      });
+      console.log("Default Admin created: username=admin, phone=9999999999, password=admin123");
+    }
+  } catch (err) {
+    console.error("Admin seed error:", err.message);
+  }
+};
+seedAdmin();
+
 // ✅ REGISTER
 router.post("/register", async (req, res) => {
   try {
-    const { username, password, phone } = req.body;
+    const { username, password, phone, role } = req.body;
 
     if (!username || !password || !phone) {
       return res.status(400).json({
         success: false,
-        message: "All fields required",
+        message: "All fields required (username, password, phone)",
       });
     }
 
@@ -33,15 +53,24 @@ router.post("/register", async (req, res) => {
       username,
       phone,
       password: hashedPassword,
+      role: role === "admin" ? "admin" : "user",
     });
+
+    const token = jwt.sign(
+      { id: user._id, role: user.role, username: user.username },
+      SECRET,
+      { expiresIn: "7d" }
+    );
 
     res.status(201).json({
       success: true,
       message: "Registered successfully",
+      token,
       data: {
         id: user._id,
         username: user.username,
         phone: user.phone,
+        role: user.role,
       },
     });
   } catch (err) {
@@ -60,7 +89,7 @@ router.post("/login", async (req, res) => {
     if (!username || !password) {
       return res.status(400).json({
         success: false,
-        message: "Username and password required",
+        message: "Username/phone and password required",
       });
     }
 
@@ -84,9 +113,11 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    const token = jwt.sign({ id: user._id }, SECRET, {
-      expiresIn: "1d",
-    });
+    const token = jwt.sign(
+      { id: user._id, role: user.role, username: user.username },
+      SECRET,
+      { expiresIn: "7d" }
+    );
 
     res.json({
       success: true,
@@ -96,6 +127,7 @@ router.post("/login", async (req, res) => {
         id: user._id,
         username: user.username,
         phone: user.phone,
+        role: user.role,
       },
     });
   } catch (err) {
